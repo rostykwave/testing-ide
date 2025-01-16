@@ -1,5 +1,7 @@
 import * as fs from 'fs';
-const numberOfRefferences: number = 328;
+const oldReferencesSortedInNewWay = [316, 289, 134, 261];
+const referenceMap = createReferenceMap(oldReferencesSortedInNewWay);
+// const referenceMap = { 289: 2, 134: 3, 261: 4, 316: 1 };
 const filePath = 'src/diss.txt';
 
 fs.readFile(filePath, 'utf8', (err, data) => {
@@ -9,47 +11,48 @@ fs.readFile(filePath, 'utf8', (err, data) => {
   }
 
   console.log('File contents:', data);
-  const uniqueNumbers = extractUniqueReferenceNumbers(data);
-  // console.log(uniqueNumbers);
-  const missingNumbers = findMissingNumbers(uniqueNumbers, numberOfRefferences);
-  // console.log('missingNumbers', missingNumbers);
-  const missingNumbersString = missingNumbers.join('\n'); // Use '\n' for line breaks or ',' for a single line
-  // console.log('missingNumbersString', missingNumbersString);
-  writeToFile('src/result.txt', missingNumbersString);
+  const updatedText = replaceReferencesInText(data, referenceMap);
+
+  writeToFile('src/result.txt', updatedText);
 });
 
-function extractUniqueReferenceNumbers(text: string): number[] {
+function replaceReferencesInText(
+  text: string,
+  referenceMap: { [key: number]: number },
+): string {
+  // Шукаємо всі числа в квадратних дужках
   const regex = /\[(.*?)\]/g;
-  const matches = [...text.matchAll(regex)];
-  const numbers: Set<number> = new Set();
-
-  matches.forEach((match) => {
-    const numArray = match[1]
+  return text.replace(regex, (match) => {
+    // Отримуємо всі числа з квадратних дужок
+    const numbers = match
+      .slice(1, -1)
       .split(',')
-      .map((num) => parseInt(num.trim(), 10))
-      .filter((num) => !isNaN(num));
+      .map((num) => num.trim());
 
-    numArray.forEach((num) => numbers.add(num));
+    // Замінюємо числа на нові значення за допомогою мапи
+    const updatedNumbers = numbers.map((num: string) => {
+      const number = parseInt(num, 10);
+      if (referenceMap[number] !== undefined) {
+        return referenceMap[number]; // Заміна на нове значення з мапи
+      }
+      return num; // Якщо немає в мапі, залишаємо без змін
+    });
+
+    // Повертаємо оновлені числа в квадратних дужках
+    return `[${updatedNumbers.join(', ')}]`;
   });
-
-  return [...numbers].sort((a, b) => a - b);
 }
 
-function findMissingNumbers(
-  uniqueNumbers: number[],
-  numberOfRefferences: number,
-): number[] {
-  const allNumbers = new Set<number>(
-    Array.from({ length: numberOfRefferences }, (_, i) => i + 1),
-  );
-  const uniqueSet = new Set(uniqueNumbers);
+function createReferenceMap(oldReferences: number[]): {
+  [key: number]: number;
+} {
+  const referenceMap: { [key: number]: number } = {};
 
-  // Find missing numbers by subtracting uniqueSet from allNumbers
-  const missingNumbers: number[] = [...allNumbers].filter(
-    (num) => !uniqueSet.has(num),
-  );
+  oldReferences.forEach((oldReference, index) => {
+    referenceMap[oldReference] = index + 1; // Set the new position as index + 1 (starting from 1)
+  });
 
-  return missingNumbers;
+  return referenceMap;
 }
 
 function writeToFile(fileName: string, data: string): void {
